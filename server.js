@@ -6,6 +6,7 @@ const User = require('./models/user');
 const bcrypt=require("bcryptjs");
 const jwt=require("jsonwebtoken");
 const Pet = require('./models/Pet');
+const Request = require('./models/Request');
 const app = express();
 app.use(express.json());
 app.use(cors());
@@ -83,10 +84,42 @@ app.post("/login", async(req,res) => {
     }
 });
 
-app.get("/pets", async (req, res) => {
+app.post("/adopt", async(req,res) => {
+    try{
+        const {petName,userEmail}=req.body;
+        const request= new Request({
+            petName,userEmail
+        });
+        await request.save();
+        res.status(201).json({message: "Adoption request sent"});
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get("/requests", async (req, res) => {
     try {
-        const pets = await Pet.find();
-        res.status(200).json(pets);
+        const requests = await Request.find();
+        res.status(200).json(requests);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.delete("/delete-pet/:id", async (req, res) => {
+    try {
+        await Pet.findByIdAndDelete(req.params.id);
+        res.status(200).json({ message: "Pet deleted successfully" });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.put("/update-pet/:id", async (req, res) => {
+    try {
+        const { name, age, breed, category, image } = req.body;
+        const updatedPet = await Pet.findByIdAndUpdate(req.params.id, { name, age, breed, category, image }, { new: true });
+        res.status(200).json(updatedPet);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
