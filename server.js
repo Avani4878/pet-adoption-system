@@ -1,18 +1,51 @@
-const cors = require('cors');
 const express = require('express');
+const app = express();
+const cors = require('cors');
 const mongoose = require("mongoose");
 require('dotenv').config();
+app.use(cors());
+const multer=require('multer');
+const cloudinary=require("./cloudinary");
+const{CloudinaryStorage}=require('multer-storage-cloudinary');
+
+const storage=new CloudinaryStorage({
+    cloudinary,
+    params: async(req, file) =>{
+        return{
+            folder: "pets",
+            resource_type: "image",
+            allowedFormats: "jpg"
+        };
+    }
+});
+const upload=multer({storage: storage});
 const User = require('./models/user');
 const bcrypt=require("bcryptjs");
 const jwt=require("jsonwebtoken");
 const Pet = require('./models/Pet');
 const Request = require('./models/Request');
-const app = express();
+app.post("/upload", upload.single("image"), (req, res) => {
+    try{
+        console.log("FILE Recieved",req.file);
+        if(!req.file){
+            return res.status(400).json({ error: "No file recieved" });
+        } 
+        return res.json({ imageUrl: req.file.path });
+    }catch(error){
+        console.error("UPLOAD ERROR:",error);
+        return res.status(500).json({ error: "Image upload failed" });
+    }
+});
 app.use(express.json());
-app.use(cors());
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB Connected "))
   .catch(err => console.log(err));
+
+console.log("ENC CHECK:",{
+    cloud:process.env.CLOUD_NAME,
+    key:process.env.CLOUD_API_KEY ? "exists" : "missing",
+    secret:process.env.CLOUD_API_SECRET ? "exists" : "missing"
+});
 
 app.get('/', (req, res) => {
     res.send('Server is running.');
@@ -92,6 +125,15 @@ app.post("/adopt", async(req,res) => {
         });
         await request.save();
         res.status(201).json({message: "Adoption request sent"});
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get("/pets", async (req, res) => {
+    try {
+        const pets = await Pet.find();
+        res.status(200).json(pets);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
